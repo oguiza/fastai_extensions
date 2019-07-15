@@ -44,7 +44,10 @@ class RicapLoss(nn.Module):
             return self.crit
 
 class RicapCallback(LearnerCallback):
-    "Callback that creates the ricap input and target."
+    '''Adapted from :
+    paper: https://arxiv.org/abs/1811.09030
+    github: https://github.com/4uiiurz1/pytorch-ricap
+    and mixup in the fastai library.'''
     def __init__(self, learn:Learner, beta:float=.3, stack_y:bool=True):
         super().__init__(learn)
         self.beta,self.stack_y = beta,stack_y
@@ -108,7 +111,11 @@ setattr(mixup, 'cb_fn', MixUpCallback)
 
 
 class CutMixCallback(LearnerCallback):
-    "Callback that creates the cut mixed-up input and target."
+    '''Adapted from :
+    paper: https://arxiv.org/abs/1905.04899
+    github: https://github.com/clovaai/CutMix-PyTorch
+    and mixup in the fastai library.'''
+
     def __init__(self, learn:Learner, alpha:float=1., stack_y:bool=True, true_λ:bool=True):
         super().__init__(learn)
         self.alpha,self.stack_y,self.true_λ = alpha,stack_y,true_λ
