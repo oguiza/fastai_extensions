@@ -186,42 +186,6 @@ setattr(cutmix, 'cb_fn', CutMixCallback)
 Learner.cutmix = cutmix
 
 
-
-def show_multi_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
-    xb, yb = learn.data.one_batch()
-    tfms = learn.data.train_ds.tfms
-    for i in range(len(xb)):
-        xb[i] = Image(xb[i]).apply_tfms(tfms).data
-    for cb in learn.callback_fns:
-        try:
-            cb_fn = partial(cb.func, **cb.keywords)
-            [Image(cb_fn(learn).on_batch_begin(
-                        xb, yb, True)['last_input'][0]).show(ax=ax)
-                for i, ax in enumerate(
-                    plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
-            plt.show()
-            break
-        except:
-            plt.close('all')
-    return learn
-
-
-Learner.show_multi_img_tfms = show_multi_img_tfms
-
-
-def show_single_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
-    img = learn.data.train_ds.x
-    tfms = learn.data.train_ds.tfms
-    rand_int = np.random.randint(len(img))
-    [img[rand_int].apply_tfms(tfms).show(ax=ax) for i, ax in enumerate(
-            plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
-    plt.show()
-    return learn
-
-
-Learner.show_single_img_tfms = show_single_img_tfms
-
-
 def get_x1_coords(x_size, n_patches, same_size=True):
     if same_size:
         w = np.linspace(0, x_size[-1], num=n_patches[0] + 1).astype(np.int64)
@@ -567,3 +531,93 @@ def get_fn(a):
         if hasattr(a, 'func'): a = a.func
         else: break
     return a
+
+
+
+def show_multi_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
+    xb, yb = learn.data.one_batch()
+    tfms = learn.data.train_ds.tfms
+    for i in range(len(xb)):
+        xb[i] = Image(xb[i]).apply_tfms(tfms).data
+    for cb in learn.callback_fns:
+        try:
+            cb_fn = partial(cb.func, **cb.keywords)
+            [Image(cb_fn(learn).on_batch_begin(
+                        xb, yb, True)['last_input'][0]).show(ax=ax)
+                for i, ax in enumerate(
+                    plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
+            plt.show()
+            break
+        except:
+            plt.close('all')
+    return learn
+
+
+Learner.show_multi_img_tfms = show_multi_img_tfms
+
+
+def show_single_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
+    img = learn.data.train_ds.x
+    tfms = learn.data.train_ds.tfms
+    rand_int = np.random.randint(len(img))
+    [img[rand_int].apply_tfms(tfms).show(ax=ax) for i, ax in enumerate(
+            plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
+    plt.show()
+    return learn
+
+def show_multi_img_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
+    xb, yb = learn.data.one_batch()
+    tfms = learn.data.train_ds.tfms
+    for i in range(len(xb)):
+        xb[i] = Image(xb[i]).apply_tfms(tfms).data
+    for cb in learn.callback_fns:
+        try:
+            cb_fn = partial(cb.func, **cb.keywords)
+            [Image(cb_fn(learn).on_batch_begin(
+                        xb, yb, True)['last_input'][0]).show(ax=ax)
+                for i, ax in enumerate(
+                    plt.subplots(rows, cols, figsize=figsize)[1].flatten())]
+            plt.show()
+            break
+        except:
+            plt.close('all')
+    return learn
+
+def show_tfms(learn, rows=3, cols=3, figsize=(8, 8)):
+    xb, yb = learn.data.one_batch()
+    rand_int = np.random.randint(len(xb))
+    rand_img = Image(xb[rand_int])
+    tfms = learn.data.train_ds.tfms
+    for i in range(len(xb)):
+        xb[i] = Image(xb[i]).apply_tfms(tfms).data
+    cb_tfms = 0
+    for cb in learn.callback_fns:
+        if hasattr(cb, 'keywords') and hasattr(get_fn(cb), 'on_batch_begin'):
+            cb_fn = partial(get_fn(cb), **cb.keywords)
+            try:
+                fig = plt.subplots(rows, cols, figsize=figsize)[1].flatten()
+                plt.suptitle(get_fn(cb).__name__, size=14)
+                [Image(cb_fn(learn).on_batch_begin(
+                            xb, yb, True)['last_input'][0]).show(ax=ax)
+                    for i, ax in enumerate(fig)]
+                plt.show()
+                cb_tfms += 1
+                break
+            except:
+                plt.close('all')
+    if cb_tfms == 0:
+        if tfms is not None:
+            t_ = []
+            for t in learn.data.train_ds.tfms: t_.append(get_fn(t).__name__)
+            title = f"{str(t_)[1:-1]} transforms applied"
+        else: title = f'No transform applied'
+        rand_int = np.random.randint(len(xb))
+        fig = plt.subplots(rows, cols, figsize=figsize)[1].flatten()
+        plt.suptitle(title, size=14)
+        [rand_img.apply_tfms(tfms).show(ax=ax) for i, ax in enumerate(fig)]
+        plt.show()
+    return learn
+
+Learner.show_tfms = show_tfms
+Learner.show_multi_img_tfms = show_multi_img_tfms
+Learner.show_single_img_tfms = show_single_img_tfms
