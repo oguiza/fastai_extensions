@@ -243,7 +243,12 @@ def get_x1_coords(x_size, n_patches, same_size=True):
     return patch
 
 
-def get_x1_rand_coords(x_size, n_patches, w, h):
+def get_x1_rand_coords(x_size, n_patches, w, h, same_size=True):
+    if not same_size:
+        a = w * h
+        p = np.random.uniform() + .5
+        w = max(1, int(p * w))
+        h = max(1, int(a / w))
     w_x = np.random.randint(0, x_size[-1]) if n_patches[0] != 1 else 0
     w_xa = np.clip(w_x - w // 2, 0, x_size[-1])
     w_xb = np.clip(w_x + w // 2, 0, x_size[-1])
@@ -300,7 +305,7 @@ class BlendCallback(LearnerCallback):
     "Callback that creates the blend input and target."
     def __init__(self, learn:Learner,
                  size:tuple=(.1, .1), alpha:float=1., fixed_proba:float=0.,
-                 blend_type:str='cut', grid:bool=False,
+                 blend_type:str='cut', grid:bool=True,
                  same_size:bool=True, same_crop:bool=True, same_image:bool=False):
         ''' Modifies one or multiple subregions of an image
         Parameters:
@@ -318,7 +323,9 @@ class BlendCallback(LearnerCallback):
         '''
         assert blend_type in ['zero', 'noise', 'mix', 'cut', 'random'], \
         print("make sure you select one of these blend_types: 'zero', 'noise', 'mix', 'cut', 'random'")
-        if not same_image and blend_type in ['mix', 'cut']: grid = True
+        if not grid and not same_image:
+            assert blend_type in ['zero', 'noise'],\
+            print('either grid or same_image must be set to True when using', blend_type)
         super().__init__(learn)
         self.size,self.alpha,self.fixed_proba,self.blend_type = size,alpha,fixed_proba,blend_type
         self.grid,self.same_size,self.same_crop,self.same_image = grid,same_size,same_crop,same_image
@@ -369,7 +376,8 @@ class BlendCallback(LearnerCallback):
         for i,j in enumerate(patch_ids):
             #x1 coordinates
             if self.grid: bby1, bby2, bbx1, bbx2 = patches[j]
-            else: bby1, bby2, bbx1, bbx2 = get_x1_rand_coords(x_size, n_patches, w, h)
+            else: bby1, bby2, bbx1, bbx2 = get_x1_rand_coords(x_size, n_patches, w, h,
+                                                              same_size=self.same_size)
             # Blend
             if _blend == 'zero': patched_images[..., bby1:bby2, bbx1:bbx2] = 0
             if _blend == 'noise':
@@ -402,9 +410,9 @@ class BlendCallback(LearnerCallback):
         if not self.same_image: self.learn.loss_func = self.learn.loss_func.get_old()
 
 
-def blend(learn:Learner, size:tuple=(.1, .1), alpha:float=1.,
-          fixed_proba:float=0., blend_type:str='cut', grid:bool=False,
-          same_size:bool=True, same_crop:bool=True, same_image:bool=False) -> Learner:
+def blend(learn:Learner, size:tuple=(.1, .1), alpha:float=1., fixed_proba:float=0.,
+                 blend_type:str='cut', grid:bool=True,
+                 same_size:bool=True, same_crop:bool=True, same_image:bool=False) -> Learner:
     learn.callback_fns.append(partial(BlendCallback, size=size, alpha=alpha,
                                       fixed_proba=fixed_proba, blend_type=blend_type, grid=grid,
                                       same_size=same_size, same_crop=same_crop, same_image=same_image))
