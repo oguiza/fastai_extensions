@@ -50,7 +50,7 @@ class BatchLossFilterCallback(LearnerCallback):
     def on_train_end(self, **kwargs):
         """At the end of training this calleback will be removed"""
         if hasattr(self.learn.loss_func, 'reduction'):  setattr(self.learn.loss_func, 'reduction', self.red)
-        drop_cb_fn(self.learn, 'TopLossesCallback')
+        drop_cb_fn(self.learn, 'BatchLossFilterCallback')
 
     def get_loss_idxs(self):
         idxs = np.argsort(self.losses)[::-1]
@@ -58,6 +58,15 @@ class BatchLossFilterCallback(LearnerCallback):
         self.losses /= self.losses.sum()
         loss_max = np.argmax(self.losses[idxs].cumsum() >= self.min_loss_perc) + 1
         self.idxs =  list(idxs[:max(sample_max, loss_max)])
+
+
+def drop_cb_fn(learn, cb_name:str)->None:
+    cbs = []
+    for cb in learn.callback_fns:
+        if isinstance(cb, functools.partial): cbn = cb.func.__name__
+        else: cbn = cb.__name__
+        if cbn != cb_name: cbs.append(cb)
+    learn.callback_fns = cbs
 
 
 def batch_loss_filter(learn:Learner, min_sample_perc:float=0., min_loss_perc:float=.9)->Learner:
