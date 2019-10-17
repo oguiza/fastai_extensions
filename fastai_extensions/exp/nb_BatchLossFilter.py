@@ -9,11 +9,12 @@ display(HTML("<style>.container { width:100% !important; }</style>"))
 
 
 import math
+from fastai.callbacks import *
 
 class BatchLossFilterCallback(LearnerCallback):
     _order = -20
 
-    def __init__(self, learn:Learner, min_sample_perc:float=0., min_loss_perc:float=0.):
+    def __init__(self, learn:Learner, min_sample_perc:float=0., min_loss_perc:float=0., mixed_precision_batch:bool=False):
         super().__init__(learn)
         assert min_sample_perc >0. or min_loss_perc > 0., 'min_sample_perc <= 0 and min_loss_perc <= 0'
         self.min_sample_perc, self.min_loss_perc = min_sample_perc, min_loss_perc
@@ -24,16 +25,20 @@ class BatchLossFilterCallback(LearnerCallback):
         self.sel_losses_sum, self.losses_sum = 0., 0.
         self.sel_samples, self.samples = 0., 0.
         self.recorder.add_metric_names(["loss_perc", "samp_perc"])
+        self.loss_fp32 = False
+        self.mixed_precision_batch = mixed_precision_batch
+        for cb in learn.callbacks:
+            if isinstance(cb, MixedPrecision): self.loss_fp32 = True
 
     def on_epoch_begin(self, **kwargs):
         "Set the inner value to 0."
         self.sel_losses_sum, self.losses_sum = 0., 0.
         self.sel_samples, self.samples = 0., 0.
-
+    
     def on_batch_begin(self, last_input, last_target, train, epoch, **kwargs):
         if not train or epoch == 0: return
         if hasattr(self.crit, 'reduction'):  setattr(self.crit, 'reduction', 'none')
-        with torch.no_grad():  self.losses = np.array(self.crit(self.model(last_input), last_target))
+        with torch.no_grad():  self.losses = np.array(self.crit(to_float(self.model(last_input)) if self.loss_fp32 else self.model(last_input), last_target))
         if hasattr(self.crit, 'reduction'):  setattr(self.crit, 'reduction', self.red)
         self.get_loss_idxs()
         self.sel_losses_sum += self.losses[self.idxs].sum()
@@ -41,28 +46,31 @@ class BatchLossFilterCallback(LearnerCallback):
         self.sel_samples += len(self.idxs)
         self.samples += len(self.losses)
         return {"last_input": last_input[self.idxs], "last_target": last_target[self.idxs]}
-
+        
     def on_epoch_end(self, epoch, last_metrics, **kwargs):
         loss_perc = self.sel_losses_sum / self.losses_sum if epoch > 0 else 1.
         sample_perc = self.sel_samples / self.samples if epoch > 0 else 1.
         return add_metrics(last_metrics, [loss_perc, sample_perc])
-
+    
     def on_train_end(self, **kwargs):
-        """At the end of training this calleback will be removed"""
+        """At the end of training this callback will be removed"""
         if hasattr(self.learn.loss_func, 'reduction'):  setattr(self.learn.loss_func, 'reduction', self.red)
-        drop_cb_fn(self.learn, 'TopLossesCallback')
-
+        for cb in learn.callbacks:
+            if isinstance(cb, BatchLossFilterCallback): learn.callbacks.remove(cb)
+        
     def get_loss_idxs(self):
         idxs = np.argsort(self.losses)[::-1]
         sample_max = math.ceil(len(idxs) * self.min_sample_perc)
         self.losses /= self.losses.sum()
         loss_max = np.argmax(self.losses[idxs].cumsum() >= self.min_loss_perc) + 1
-        self.idxs =  list(idxs[:max(sample_max, loss_max)])
+        if self.loss_fp32 and self.mixed_precision_batch:
+            self.idxs = list(idxs[:min(math.ceil(max(sample_max, loss_max)/8)*8,len(idxs))])
+        else:
+            self.idxs = list(idxs[:max(sample_max, loss_max)])
 
-
-def batch_loss_filter(learn:Learner, min_sample_perc:float=0., min_loss_perc:float=.9)->Learner:
-    learn.callback_fns.append(partial(BatchLossFilterCallback, min_sample_perc=min_sample_perc,
-                                      min_loss_perc=min_loss_perc))
+def batch_loss_filter(learn:Learner, min_sample_perc:float=0., min_loss_perc:float=.9, mixed_precision_batch:bool=False)->Learner:
+    learn.callback_fns.append(partial(BatchLossFilterCallback, min_sample_perc=min_sample_perc, 
+                                      min_loss_perc=min_loss_perc, mixed_precision_batch=mixed_precision_batch))
     return learn
 
 Learner.batch_loss_filter = batch_loss_filter
