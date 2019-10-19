@@ -10,6 +10,8 @@ from fastai.train import mixup
 from fastai.callbacks.mixup import MixUpCallback, MixUpLoss
 from fastai.basic_train import Learner, LearnerCallback
 from fastai.vision.image import Image, TfmPixel
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torch.nn.functional")
 
 
 class RicapLoss(nn.Module):
