@@ -57,8 +57,8 @@ class BatchLossFilterCallback(LearnerCallback):
     def on_train_end(self, **kwargs):
         """At the end of training this callback will be removed"""
         if hasattr(self.learn.loss_func, 'reduction'):  setattr(self.learn.loss_func, 'reduction', self.red)
-        for cb in learn.callbacks:
-            if isinstance(cb, BatchLossFilterCallback): learn.callbacks.remove(cb)
+        for cb in self.learn.callbacks:
+            if isinstance(cb, BatchLossFilterCallback): self.learn.callbacks.remove(cb)
         
     def get_loss_idxs(self):
         idxs = np.argsort(self.losses)[::-1]
