@@ -1,3 +1,5 @@
+import torch
+import numpy as np
 from fastai.vision import *
 from fastai.basic_train import *
 from fastai.metrics import error_rate
