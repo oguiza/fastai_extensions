@@ -1,5 +1,7 @@
 # fastai_extensions
 
+## If you are interested in times series and fastai you may want to visit the new time series library [`tsai`](https://github.com/timeseriesAI/tsai). It supports Pytorch 1.7 & fastai v2.
+
 **0_data_augmentation_notebook.ipynb**
 
 * Includes a version of *ricap* and a modified version of *cutmix* (that fixes a bug in the lambda calculation).
